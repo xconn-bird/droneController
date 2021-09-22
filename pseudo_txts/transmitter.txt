@@ -1,0 +1,13 @@
+// this is the "radiofruit host."
+// my thought process----if anything seems off, feel free to change it.
+// code for this will be in arduino and c++.
+// the following is just for the wireless with "radiofruit client."
+
+1 - init transmitter and serial
+2 - send hello at x known frequency
+3 - wait for hello rep while still sending hello till hello rep
+4 - if hello rep, connected, send payload 
+5 - request payload receipt
+6 - verify receipt, if incorrect, jmp->4
+7 - check if still connected = false jmp->2
+8 - jmp->4 
