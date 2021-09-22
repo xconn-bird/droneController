@@ -1,7 +1,7 @@
 # droneController
 # drone description:
-  type: quadcopter
-  configuration: x-con
+  type: quadcopter;
+  configuration: x-con;
   sensor info:
   - camera
   - distance/lidar sensor
