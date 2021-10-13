@@ -75,6 +75,8 @@
 // Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
+bool is;
+
 void setup() 
 {
   pinMode(RFM95_RST, OUTPUT);
@@ -121,10 +123,18 @@ int16_t packetnum = 0;  // packet counter, we increment per xmission
 
 void loop()
 {
+  is = false;
+  getmessage();
+  if (is/*messagereceived()*/) {
+    //replytomessage();
+  }
+  delay(1000);
+
+  /*
   delay(1000); // Wait 1 second between transmits, could also 'sleep' here!
   Serial.println("Transmitting..."); // Send a message to rf95_server
   
-  char radiopacket[20] = "Hello World #      ";
+  char radiopacket[20] = "Yo sup?    ";
   itoa(packetnum++, radiopacket+13, 10);
   Serial.print("Sending "); Serial.println(radiopacket);
   radiopacket[19] = 0;
@@ -160,5 +170,16 @@ void loop()
   {
     Serial.println("No reply, is there a listener around?");
   }
+  */
 
+}
+
+void getmessage() {
+  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+  uint8_t len = sizeof(buf);
+  if (rf95.recv(buf, &len)) {
+    Serial.print("*********Message is: ");
+    Serial.println((char*)buf);
+    is = true;
+  }
 }
