@@ -41,6 +41,7 @@ void setup() {
 int16_t packetnum = 0;  // packet counter, we increment per xmission
 bool saidhello = false;
 controller3 Controller;
+int packetnum_d = 0;
 
 void loop() {
   delay(1000);
@@ -48,24 +49,35 @@ void loop() {
     hello();
   receive();
   packetnum++;
-  if (packetnum >= 10)
+  if (packetnum_d >= 10) {
     saidhello = false;
+    packetnum_d = 0;
+  }
+  packetnum_d++;
 }
 
 void hello() {  // comm initiator block
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
+  uint8_t nuf[3] = "t\n";
   while (!saidhello) {
+    delay(500);
     if (rf95.recv(buf, &len)) {
-      if ((char*)buf == "thello") {
-        char helloreply[8] = "rhello\n";
-        rf95.send((uint8_t*)helloreply, 8);
+      if (buf[0] == nuf[0] && buf[1] == nuf[1]) {
+        char tuf[3] = "r\n";
+        rf95.send((uint8_t*)tuf, 3);
+        rf95.waitPacketSent();
+        rf95.send((uint8_t*)tuf, 3);
+        rf95.waitPacketSent();
+        rf95.send((uint8_t*)tuf, 3);
+        rf95.waitPacketSent(); 
+        rf95.send((uint8_t*)tuf, 3);
         rf95.waitPacketSent();
 
         Serial.println("Hello successful. Device Transmitter and Receiver are connected!");
         saidhello = true;
       } else {
-        Serial.println("Hello failed. Retrying hello...")
+        Serial.println("Hello failed. Retrying hello...");
       }
     }
   }
@@ -76,12 +88,12 @@ void receive() {
   uint8_t len = sizeof(buf);
   if (rf95.recv(buf, &len)) {
     Serial.println((char*)buf);
-    Controller.x_axis_1 = buf[0];
-    Controller.y_axis_1 = buf[1];
-    Controller.x_axis_2 = buf[2];
-    Controller.y_axis_2 = buf[3];
-    Controller.x_axis_3 = buf[4];
-    Controller.y_axis_3 = buf[5];
+    //Controller.x_axis_1 = buf[0];
+    //Controller.y_axis_1 = buf[1];
+    //Controller.x_axis_2 = buf[2];
+    //Controller.y_axis_2 = buf[3];
+    //Controller.x_axis_3 = buf[4];
+    //Controller.y_axis_3 = buf[5];
   } else {
     Serial.println("Listening to for Comm");
   }
