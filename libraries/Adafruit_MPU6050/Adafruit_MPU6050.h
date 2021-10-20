@@ -179,6 +179,21 @@ private:
   Adafruit_MPU6050 *_theMPU6050 = NULL;
 };
 
+// extended to get raw sensor data
+
+struct vector3_t {
+    int16_t x, y, z;
+};
+
+class Raw {
+public:
+    vector3_t _accel;
+    vector3_t _gyro;
+    int16_t _temp;
+
+    void getraws(Adafruit_MPU6050& a);
+};
+
 /*!
  *    @brief  Class that stores state and functions for interacting with
  *            the MPU6050 I2C Digital Potentiometer
@@ -262,6 +277,7 @@ private:
                                                ///< data object
   friend class Adafruit_MPU6050_Gyro; ///< Gives access to private members to
                                       ///< Gyro data object
+  friend class Raw;
 
   int16_t rawAccX, rawAccY, rawAccZ, rawTemp, rawGyroX, rawGyroY, rawGyroZ;
 

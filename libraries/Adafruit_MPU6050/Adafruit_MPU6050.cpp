@@ -698,3 +698,15 @@ bool Adafruit_MPU6050_Temp::getEvent(sensors_event_t *event) {
 
   return true;
 }
+
+// raw extension
+
+void Raw::getraws(Adafruit_MPU6050& a) {
+    _accel.x = a.rawAccX;
+    _accel.y = a.rawAccY;
+    _accel.z = a.rawAccZ;
+    _gyro.x = a.rawGyroX;
+    _gyro.y = a.rawGyroY;
+    _gyro.z = a.rawGyroZ;
+    _temp = a.rawTemp;
+}
