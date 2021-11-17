@@ -2,60 +2,70 @@
 
 mpu_sensor mpuSensor;
 
-float roll, pitch, rollF, pitchF, roll_offset, pitch_offset = 0;
-float lp_p, lp_r = 0;
+uint32_t last_update_time = micros();
+float last_update_angle_x = 0;
+float last_update_angle_y = 0;
+float last_update_angle_z = 0;
+
+void rates(float sensorItem);
+
+float yaw, pitch, roll = 0;
+
+bool firsttime = true;
 
 void setup() {
   Serial.begin(115200);
   while(!Serial)
     delay(10);
 
-  if(!mpuSensor.m_begin()) {
-    Serial.println("mpu failed to init!");
-    while(1) {
-      delay(10);
-    }
-  } 
-  Serial.println("mpu init successful");
-  mpuSensor.setRanges(MPU6050_RANGE_2_G, MPU6050_RANGE_2000_DEG, MPU6050_BAND_21_HZ);
-  delay(100);
-  pitch_offset = 3.03;
-  roll_offset = 1.83;
+  mpuSensor.mSetup();
 }
 
 void loop() {
-  mpuSensor.m_update();
-  //Serial.print("Acceleration X: ");
-  //Serial.print(mpuSensor.acceleration.x);
-  //Serial.print(", Y: ");
-  //Serial.print(mpuSensor.acceleration.y);
-  //Serial.print(", Z: ");
-  //Serial.print(mpuSensor.acceleration.z);
-  //Serial.println(" m/s^2");
-  roll = atan(mpuSensor.acceleration.y / sqrt(pow(mpuSensor.acceleration.x, 2) + pow(mpuSensor.acceleration.z, 2))) * 180 / PI;
-  pitch = atan(-1 * mpuSensor.acceleration.x / sqrt(pow(mpuSensor.acceleration.y, 2) + pow(mpuSensor.acceleration.z, 2))) * 180 / PI;
-  rollF = roll + roll_offset;
-  pitchF = pitch + pitch_offset;
-  lp_r = 0.94 * lp_r + 0.06 * rollF;
-  lp_p = 0.94 * lp_p + 0.06 * pitchF;
-  //Serial.print("roll: ");
-  Serial.print(lp_r);
-  Serial.print("/");
-  //Serial.print("pitch: ");
-  Serial.println(lp_p);
-/*
-  Serial.print("Rotation X: ");
-  Serial.print(mpuSensor.raw_gyro.x);
-  Serial.print(", Y: ");
-  Serial.print(mpuSensor.raw_gyro.y);
-  Serial.print(", Z: ");
-  Serial.print(mpuSensor.raw_gyro.z);
-  Serial.println(" rad/s");
+  if (!mpuSensor.readyCheck()) return;
+  mpuSensor.updateMPU();
+  Serial.print("ypr\t");
+  Serial.print(mpuSensor.solvedYPR[0]);
+  Serial.print("\t");
+  Serial.print(mpuSensor.solvedYPR[1]);
+  Serial.print("\t");
+  Serial.print(mpuSensor.solvedYPR[2]);
+  Serial.println();
 
-  Serial.print("Temperature: ");
-  Serial.print(mpuSensor.raw_temp);
-  Serial.println(" degC");
-*/
-  //Serial.println("");
-  //delay(1000);
+  if (firsttime) {
+    last_update_time = micros();
+    last_update_angle_x = mpuSensor.solvedYPR[1];
+    last_update_angle_y = mpuSensor.solvedYPR[2];
+    last_update_angle_z = mpuSensor.solvedYPR[0];
+    firsttime = false;
+  } else 
+    rates();
+
+  Serial.print("ypr rates\t");
+  Serial.print(yaw);
+  Serial.print("\t");
+  Serial.print(pitch);
+  Serial.print("\t");
+  Serial.print(roll);
+  Serial.println();
+
+  delay(1000);
+}
+
+void rates() {
+  uint32_t elapsed_time = (micros() - last_update_time) / 1000000;
+  yaw = (mpuSensor.solvedYPR[0] - last_update_angle_z) / elapsed_time;
+  pitch = (mpuSensor.solvedYPR[1] - last_update_angle_x) / elapsed_time;
+  roll = (mpuSensor.solvedYPR[2] - last_update_angle_y) / elapsed_time;
+
+  if (yaw < 0)
+    yaw *= -1;
+  if (pitch < 0)
+    pitch *= -1;
+  if (roll < 0)
+    roll *= -1;
+
+  last_update_angle_x = mpuSensor.solvedYPR[1];
+  last_update_angle_y = mpuSensor.solvedYPR[2];
+  last_update_angle_z = mpuSensor.solvedYPR[0];
 }
