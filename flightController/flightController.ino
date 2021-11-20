@@ -14,7 +14,7 @@ int yawangle, pitchangle, rollangle = 0;
 float yawrate, pitchrate, rollrate = 0;
 
 // Controller Vars
-int thrust = 10, cyaw = 0, cpitch = 0, croll = 0;
+int thrust = 10, cyaw = 0, cpitch = 0, croll = 0;  // thrust range = 0-100%, yaw range = (-360)-360 deg, pitch & roll range = (-45)-45 deg
 int yaw, pitch, roll = 0;
 
 // indi motor controls
@@ -137,9 +137,20 @@ void accumulatorPID(int userpitch, int userroll, int useryaw) {
   yaw = ratePID(stabilizerPID(useryaw, yawangle), yawrate);
 }
 
+int altitudePID(int userthrust, float sensoralt) {
+  int error = userthrust - sensoralt;
+  return error;  // if error = 0, right altitude achieved, if error = -a, drone too high, if error = +a, drone too low
+}
+
+
+
 void flightProcessor() {
-  m1_pwm = thrust - pitch - roll - yaw;
-  m2_pwm = thrust + pitch + roll - yaw;
-  m3_pwm = thrust + pitch - roll + yaw;
-  m4_pwm = thrust - pitch + roll + yaw;
+  thrust = map(thrust, 0, 100, 0, 200);
+  yaw = map(yaw, -360, 360, 0, 60);
+  pitch = map(pitch, -45, 45, 0, 60);
+  roll = map(roll, -45, 45, 0, 60);
+  m1_pwm = thrust + yaw + pitch + roll;
+  m2_pwm = thrust - yaw + pitch - roll;
+  m3_pwm = thrust - yaw - pitch + roll;
+  m4_pwm = thrust + yaw - pitch - roll;
 }

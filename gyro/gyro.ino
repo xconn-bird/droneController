@@ -23,15 +23,14 @@ void setup() {
 
 void loop() {
   if (!mpuSensor.readyCheck()) return;
-  mpuSensor.updateMPU();
-  Serial.print("ypr\t");
-  Serial.print(mpuSensor.solvedYPR[0]);
+  mpuSensor.updateMPU('w');
+  Serial.print(mpuSensor.aaWorld.x);
   Serial.print("\t");
-  Serial.print(mpuSensor.solvedYPR[1]);
+  Serial.print(mpuSensor.aaWorld.y);
   Serial.print("\t");
-  Serial.print(mpuSensor.solvedYPR[2]);
+  Serial.print(mpuSensor.aaWorld.z);
   Serial.println();
-
+/*
   if (firsttime) {
     last_update_time = micros();
     last_update_angle_x = mpuSensor.solvedYPR[1];
@@ -48,8 +47,8 @@ void loop() {
   Serial.print("\t");
   Serial.print(roll);
   Serial.println();
-
-  delay(1000);
+*/
+  //delay(1000);
 }
 
 void rates() {
