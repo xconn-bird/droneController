@@ -2,7 +2,7 @@
 #ifndef MPU_SENSOR_H
 #define MPU_SENSOR_H
 
-#define INTERRUPT_PIN 2
+#define INTERRUPT_PIN 5
 
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps_V6_12.h"
