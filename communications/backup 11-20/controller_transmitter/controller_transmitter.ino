@@ -22,8 +22,8 @@ RH_RF95 rf95(RFM95_CS, RFM95_INT);
 #define joy1Y A1 // yaw
 #define joy2X A2 // pitch
 #define joy2Y A3 // roll
-#define joy1button 10 // left button
-#define joy2button 11 // right button
+#define joy1button 11 // left button
+#define joy2button 10 // right button
 
 void setup() 
 {
@@ -73,13 +73,12 @@ void setup()
 //------------------------------------------------------------------------------
 
 int thrPos, yawPos, pitPos, rolPos, lPush, rPush; // mapped joystick values centered at 3
-uint8_t data[7];
+uint8_t data[3];
 uint8_t len = 3;
 
-char key_video = "V";
-char key_sensor = "S";
-char key_ack = "A";
-char hellosend[3] = "t\n";
+uint8_t key_video[] = "V";
+uint8_t key_sensor[] = "S";
+uint8_t key_ack[] = "A";
 
 bool ack = false;
 bool saidhello = false;
@@ -119,14 +118,14 @@ void hello() {  // comm initiator block
 }
 
 void loop() {
-  delay(10); // -----------------------------------------CHANGE BACK TO 10
+  delay(10);
   if (!saidhello)
     hello();
   
-  thrPos = getValue(joy1Y);
-  yawPos = getValue(joy1X);
-  pitPos = getValue(joy2Y);
-  rolPos = getValue(joy2X);
+  thrPos = getValue(joy1X);
+  yawPos = getValue(joy1Y);
+  pitPos = getValue(joy2X);
+  rolPos = getValue(joy2Y);
   lPush = 1 - digitalRead(joy1button);
   rPush = 1 - digitalRead(joy2button);
   
@@ -152,12 +151,12 @@ void loop() {
 
 int getValue(int pin) {
   int axisValue = analogRead(pin);                // swapped for sideways oreintation on breadboard
-  //int axisMap = map(axisValue,0,1023,0,6);           // 10 bit mapped to a range of -3 to 3
+  int axisMap = map(axisValue,0,1023,0,6);           // 10 bit mapped to a range of -3 to 3
 
   if (deadzone(axisValue)) {                    // ensures values of 0 when joystick is centered
-    axisValue = 512;
+    axisMap = 3;
   }
-  return axisValue;
+  return axisMap;
 }
 
 bool deadzone(int value) {
@@ -168,36 +167,15 @@ bool deadzone(int value) {
 }
 
 void createControlPacket() { // CHANGE TO 10 BIT
-  yawPos = 1024 - yawPos;
-  pitPos = 1024 - pitPos;
-  
   data[0] = 0x43;   // control packet key "C" in ASCII
   data[1] = 0x00;   // reset each data byte
   data[2] = 0x00;
-  data[3] = 0x00;
-  data[4] = 0x00;
-  data[5] = 0x00;
-  data[6] = 0xFF;
-
-  data[1] = (lPush<<4 | ((thrPos & 0x03C0)>>6));  // shift and pack button,
-  data[2] = ((thrPos & 0x3F)<<2 | ((yawPos & 0x0300)>>8));  // x-axis, & y-axis values
-  data[3] = (yawPos & 0xFF);
-
-  data[4] = (rPush<<4 | ((pitPos & 0x03C0)>>6));  // shift and pack button,
-  data[5] = ((pitPos & 0x3F)<<2 | ((rolPos & 0x0300)>>8));  // x-axis, & y-axis values
-  data[6] = (rolPos & 0xFF);
-
-  //Serial.println(data[0], BIN);
-  //Serial.println(data[1], BIN);
-  //Serial.println(data[2], BIN);
-  //Serial.println(data[3], BIN);
-
-
-  
+  data[1] = (lPush<<6 | thrPos<<3 | yawPos);  // shift and pack button,
+  data[2] = (rPush<<6 | pitPos<<3 | rolPos);  // x-axis, & y-axis values
 }
 
 void sendControlPacket() {
-  rf95.send(data, 7);//sizeof(data));
+  rf95.send(data, 3);
   rf95.waitPacketSent();
   //Serial.print("Packet sent: ");
   //Serial.println((char*)data);
@@ -205,24 +183,24 @@ void sendControlPacket() {
 }
 
 void receivePacket() {
-  if (rf95.waitAvailableTimeout(100)) {
+  if (rf95.waitAvailableTimeout(50)) {
     if (rf95.recv(data, &len)) {
       //Serial.print("Packet received: ");
       //Serial.println((char*)data);
       
-      if (data[0] == key_video) {
+      if (data[0] == key_video[0]) {
         //Serial.println("Received a video packet");
         silence_count = 0;
         decodeVideoPacket();
       }
 
-      if (data[0] == key_sensor) {
+      if (data[0] == key_sensor[0]) {
         //Serial.println("Received a sensor packet");
         silence_count = 0;
         decodeSensorPacket();
       }
 
-      if (data[0] == key_ack) {
+      if (data[0] == key_ack[0]) {
         //Serial.println("Received an acknowledgement packet");
         silence_count = 0;
         ack = true;
