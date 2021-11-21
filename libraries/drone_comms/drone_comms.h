@@ -18,14 +18,16 @@
 
 struct controller3 {
   int thrVal = 0;   // thrust input value
-  int thrPos = 0;   // thrust input position
   int yawPos = 0;   // yaw input position
   int pitPos = 0;   // pitch input position
   int rolPos = 0;   // roll input position
-  int lPush = 0;   // left joystick button position
-  int rPush = 0;   // right joystick button position
+  int lPush = 0;    // left joystick button position
+  int rPush = 0;    // right joystick button position
   //int x_axis_3 = 0; // controller nub 3
-  //int y_axis_3 = 0;   // handles camera angles
+  //int y_axis_3 = 0; // handles camera angles
+  int yawGyro = 0;  // -360, 360
+  int pitGyro = 0;  // -45, 45
+  int rolGyro = 0;  // -45, 45
 };
 
 class drone_comms {
@@ -36,9 +38,13 @@ public:
   void loopComms();
   void hello();
   void receivePacket();
+  void createSensorPacket();  
+  void sendSensorPacket();
   void sendAckPacket();
 
   uint8_t data[7];
+  uint8_t sens_data[7];
+
   uint8_t len;
   uint8_t key_control[2];
   uint8_t key_ack[2];
@@ -50,7 +56,6 @@ public:
 
 private:
   void decodeControlPacket();
-  void throttleCalc();
 
   float scaler;
   float value;
