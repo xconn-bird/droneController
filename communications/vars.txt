@@ -1,1 +1,5 @@
-gyro x,y,z, distance x, pressure x, accel x,y,z, 
+gyro  x,y,z -45,45
+//accel x,y,z
+acceleration float (x,y,z) 5 digit, 5 digit, int 9.8m/s/s
+distance x
+pressure x

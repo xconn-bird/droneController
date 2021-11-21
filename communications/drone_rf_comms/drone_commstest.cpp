@@ -1,9 +1,11 @@
-#include "drone_comms.h"
+#include "drone_commstest.h"
 
+// Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 drone_comms::drone_comms() {
   len = 7;
+  sens_data[0] = 0;
   
   key_control[0] = 0x43;
   key_ack[0] = 0x41;
@@ -49,11 +51,15 @@ void drone_comms::loopComms() {
 
   receivePacket();
   delay(10);
+  
+  createSensorPacket();
+  sendSensorPacket();
+
   sendAckPacket();
+
 
   if (silence_count >= 5) {
     saidhello = false;
-    Controller.thrPos = 0;
     Controller.yawPos = 0;
     Controller.pitPos = 0;
     Controller.rolPos = 0;
@@ -62,7 +68,7 @@ void drone_comms::loopComms() {
   }
 
   Serial.print("Int variable values: ");
-  Serial.print(Controller.thrPos); Serial.print(", ");
+  Serial.print(Controller.thrVal); Serial.print(", ");
   Serial.print(Controller.yawPos); Serial.print(", ");
   Serial.print(Controller.pitPos); Serial.print(", ");
   Serial.print(Controller.rolPos); Serial.print(", ");
@@ -138,30 +144,50 @@ void drone_comms::sendAckPacket() {
 
 void drone_comms::decodeControlPacket() {
   Controller.lPush =   (data[1] & 0x10) >> 4;       // mask for bit 6 and shift right
-  Controller.thrPos = ((data[1] & 0x0F) << 6) | ((data[2] & 0xFC) >> 2);  // mask for bits 5-3 and shift right
+  Controller.thrVal = ((data[1] & 0x0F) << 6) | ((data[2] & 0xFC) >> 2);  // mask for bits 5-3 and shift right
   Controller.yawPos =  ((data[2] & 0x03) << 8) | (data[3]);        // mask for bits 2-0
                                                     // subtract 3 from axes to center at 0
   Controller.rPush =   (data[4] & 0x10) >> 4;       // mask for bit 6 and shift right
   Controller.pitPos = ((data[4] & 0x0F) << 6) | ((data[5] & 0xFC) >> 2);  // mask for bits 5-3 and shift right
   Controller.rolPos =  ((data[5] & 0x03) << 8) | (data[6]);        // mask for bits 2-0
-
-  Controller.thrPos = map(Controller.thrPos,0,1024,-100,101);
-  Controller.yawPos = map(Controller.yawPos,0,1024,-359,360);
-  Controller.pitPos = map(Controller.pitPos,0,1024,-45,46);
-  Controller.rolPos = map(Controller.rolPos,0,1024,-45,46);
-
-  throttleCalc();    
+  
+  Controller.thrVal -= 105;
+  Controller.yawPos -= 362;
+  Controller.pitPos -= 48;
+  Controller.rolPos -= 48;
 }
 
-void drone_comms::throttleCalc() {
-  scaler = 0.05 * Controller.thrPos;
-  value = value + scaler;
-    
-  if (value < 0) {
-    value = 0;
-  }
-  if (value > 100) {
-    value = 100;
-  }
-  Controller.thrVal = value;
+
+void drone_comms::createSensorPacket() {
+  
+  sens_data[0] = 0x53;   // sensor packet key "S" in ASCII
+  sens_data[1] = 0x00;   // reset each data byte
+  sens_data[2] = 0x00;
+  sens_data[3] = 0x00;
+  sens_data[4] = 0x00;
+  sens_data[5] = 0x00;
+  sens_data[6] = 0x00;
+
+  sens_data[2] = (((Controller.yawGyro+360) & 0x0300)>>8);  // x-axis, & y-axis values
+  sens_data[3] = ((Controller.yawGyro+360) & 0xFF);
+
+  sens_data[4] = (((Controller.pitGyro+45) & 0x03C0)>>6);  // shift and pack button,
+  sens_data[5] = (((Controller.pitGyro+45) & 0x3F)<<2 | (((Controller.rolGyro+45) & 0x0300)>>8));  // x-axis, & y-axis values
+  sens_data[6] = ((Controller.rolGyro+45) & 0xFF);
+
+  /*Serial.println(sens_data[0], BIN);
+  Serial.println(sens_data[1], BIN);
+  Serial.println(sens_data[2], BIN);
+  Serial.println(sens_data[3], BIN);
+  Serial.println(sens_data[4], BIN);
+  Serial.println(sens_data[5], BIN);
+  Serial.println(sens_data[6], BIN);*/
+}
+
+void drone_comms::sendSensorPacket() {
+  rf95.send(sens_data, 7);//sizeof(data));
+  rf95.waitPacketSent();
+  //Serial.print("sens Packet sent: ");
+  //Serial.println((char*)sens_data);
+  //ack = false;
 }

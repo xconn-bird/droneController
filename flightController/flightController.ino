@@ -1,5 +1,6 @@
 #include <Servo.h>
 #include <mpu_sensor.h>
+#include <drone_comms.h>
 
 // function inits
 void rate();
@@ -14,7 +15,11 @@ int yawangle, pitchangle, rollangle = 0;
 float yawrate, pitchrate, rollrate = 0;
 
 // Controller Vars
-int thrust = 10, cyaw = 0, cpitch = 0, croll = 0;  // thrust range = 0-100%, yaw range = (-360)-360 deg, pitch & roll range = (-45)-45 deg
+int cthrust = 10, cyaw = 0, cpitch = 0, croll = 0;  // thrust range = 0-100%, yaw range = (-360)-360 deg, pitch & roll range = (-45)-45 deg
+int rol_pos, rol_neg, pit_pos, pit_neg, yaw_pos, yaw_neg;
+int rol_pos_ef, rol_neg_ef, pit_pos_ef, pit_neg_ef, yaw_pos_ef, yaw_neg_ef;
+
+
 int yaw, pitch, roll = 0;
 
 // indi motor controls
@@ -32,24 +37,31 @@ bool firsttime = true;
 
 Servo ESC[4];
 mpu_sensor mpuSensor;
+drone_comms dc;
 int potVal;
 
 void setup() {
   Serial.begin(115200);
  
-  ESC[0].attach(10, 1000, 2000);
-  ESC[1].attach(9, 1000, 2000);
-  ESC[2].attach(8, 1000, 2000);
-  ESC[3].attach(7, 1000, 2000);
+  ESC[0].attach(13, 1000, 2000);
+  ESC[1].attach(12, 1000, 2000);
+  ESC[2].attach(11, 1000, 2000);
+  ESC[3].attach(10, 1000, 2000);
 
   mpuSensor.mSetup();
+  dc.rSetup();
 }
 
 void loop() {
-  croll = analogRead(A3);
-  croll = map(croll, 0, 1023, 0, 180);
-  cyaw = analogRead(A3);
-  cyaw = map(cyaw, 0, 1023, 0, 180);
+  dc.loopComms();
+  cthrust = dc.Controller.thrVal;
+  croll   = dc.Controller.rolPos;
+  cpitch  = dc.Controller.pitPos;
+  cyaw    = dc.Controller.yawPos;
+  
+  
+
+  
   if (mpuSensor.readyCheck())
     mpuSensor.updateMPU();
   sensorYaw = mpuSensor.solvedYPR[0];
@@ -100,7 +112,7 @@ void loop() {
   ESC[2].write(m3_pwm);
   ESC[3].write(m4_pwm);
 
-  delay(1000);
+  delay(10);
 }
 
 void rates() {
@@ -143,14 +155,65 @@ int altitudePID(int userthrust, float sensoralt) {
 }
 
 
-
 void flightProcessor() {
-  thrust = map(thrust, 0, 100, 0, 200);
+  /*thrust = map(thrust, 0, 100, 0, 200);
   yaw = map(yaw, -360, 360, 0, 60);
   pitch = map(pitch, -45, 45, 0, 60);
-  roll = map(roll, -45, 45, 0, 60);
-  m1_pwm = thrust + yaw + pitch + roll;
-  m2_pwm = thrust - yaw + pitch - roll;
-  m3_pwm = thrust - yaw - pitch + roll;
-  m4_pwm = thrust + yaw - pitch - roll;
+  roll = map(roll, -45, 45, 0, 60);*/
+
+  
+  rol_pos = 0;
+  rol_neg = 0;
+  pit_pos = 0;
+  pit_neg = 0;
+  yaw_pos = 0;
+  yaw_neg = 0;
+  
+  if (croll > 0) {
+    rol_pos = croll;
+  }
+  if (croll < 0) {
+    rol_neg = -croll;
+  }
+  if (cpitch > 0) {
+    pit_pos = cpitch;
+  }
+  if (cpitch < 0) {
+    pit_neg = -cpitch;
+  }
+  if (cyaw > 0) {
+    yaw_pos = cyaw;
+  }
+  if (cyaw < 0) {
+    yaw_neg = -cyaw;
+  }
+
+  cthrust = map(cthrust, 0, 100, 0, 140);
+  
+  rol_pos = map(rol_pos, 0, 45, 0, 40);
+  rol_neg = map(rol_neg, 0, 45, 0, 40);
+  pit_pos = map(pit_pos, 0, 45, 0, 40);
+  pit_neg = map(pit_neg, 0, 45, 0, 40);
+  yaw_pos = map(yaw_pos, 0, 360, 0, 40);
+  yaw_neg = map(yaw_neg, 0, 360, 0, 40);
+
+  rol_pos_ef = cthrust*rol_pos*(0.1/40);
+  rol_neg_ef = cthrust*rol_neg*(0.1/40);
+  pit_pos_ef = cthrust*pit_pos*(0.1/40);
+  pit_neg_ef = cthrust*pit_neg*(0.1/40);
+  yaw_pos_ef = cthrust*yaw_pos*(0.1/40);
+  yaw_neg_ef = cthrust*yaw_neg*(0.1/40);
+
+  Serial.println("effects: (rol, pit, yaw)");
+  Serial.println(rol_pos_ef);
+  Serial.println(rol_neg_ef);
+  Serial.println(pit_pos_ef);
+  Serial.println(pit_neg_ef);
+  Serial.println(yaw_pos_ef);
+  Serial.println(yaw_neg_ef);
+  
+  m1_pwm = cthrust + rol_pos_ef + pit_neg_ef + yaw_neg_ef;
+  m2_pwm = cthrust + rol_neg_ef + pit_neg_ef + yaw_pos_ef;
+  m3_pwm = cthrust + rol_pos_ef + pit_pos_ef + yaw_pos_ef;
+  m4_pwm = cthrust + rol_neg_ef + pit_pos_ef + yaw_neg_ef;
 }

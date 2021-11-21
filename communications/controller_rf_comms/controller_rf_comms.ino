@@ -72,18 +72,26 @@ void setup()
 
 //------------------------------------------------------------------------------
 
-int thrPos, yawPos, pitPos, rolPos, lPush, rPush; // mapped joystick values centered at 3
+int thrVal, thrPos, yawPos, yawVal, pitPos, rolPos, lPush, rPush = 0; // mapped joystick values centered at 3
+int yawGyro, pitGyro, rolGyro; // sensor packet values
 uint8_t data[7];
-uint8_t len = 3;
+uint8_t recv_data[7];
+uint8_t len = 7;
 
-char key_video = "V";
-char key_sensor = "S";
-char key_ack = "A";
+uint8_t key_video[2] = "V";
+uint8_t key_sensor[2] = "S";
+uint8_t key_ack[2] = "A";
 char hellosend[3] = "t\n";
 
 bool ack = false;
 bool saidhello = false;
 int silence_count = 5;
+int drop_count = 0;
+
+float thrscaler = 0;
+float thrvalue = 0;
+float yawscaler = 0;
+float yawvalue = 0;
 
 void hello() {  // comm initiator block
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
@@ -119,7 +127,7 @@ void hello() {  // comm initiator block
 }
 
 void loop() {
-  delay(10); // -----------------------------------------CHANGE BACK TO 10
+  delay(50); // -----------------------------------------CHANGE BACK TO 10
   if (!saidhello)
     hello();
   
@@ -130,16 +138,21 @@ void loop() {
   lPush = 1 - digitalRead(joy1button);
   rPush = 1 - digitalRead(joy2button);
   
-  Serial.print("Int variable values: ");
-  Serial.print(thrPos);
-  Serial.print(yawPos);
-  Serial.print(pitPos);
-  Serial.print(rolPos);
-  Serial.print(lPush);
-  Serial.println(rPush);
-  
   createControlPacket();
   sendControlPacket();
+  
+  Serial.print("Inputs: thr= ");
+  Serial.print(thrVal-105); Serial.print(",yaw= ");
+  Serial.print(yawVal-362); Serial.print(",pit= ");
+  Serial.print(pitPos-48); Serial.print(",rol= ");
+  Serial.print(rolPos-48); Serial.print(", ");
+  Serial.print(lPush); Serial.print(", ");
+  Serial.print(rPush);
+  
+  Serial.print("  Gyro: yaw= ");
+  Serial.print(yawGyro); Serial.print(",pit= ");
+  Serial.print(pitGyro); Serial.print(",rol= ");
+  Serial.println(rolGyro);
   
   while (!ack) {
     receivePacket();
@@ -170,6 +183,21 @@ bool deadzone(int value) {
 void createControlPacket() { // CHANGE TO 10 BIT
   yawPos = 1024 - yawPos;
   pitPos = 1024 - pitPos;
+  thrPos = map(thrPos,0,1024,-100,101);
+  yawPos = map(yawPos,0,1024,-359,360);
+  pitPos = map(pitPos,0,1024,-45,46);
+  rolPos = map(rolPos,0,1024,-45,46);
+
+  throttleCalc();
+  yawCalc();
+
+  
+  thrVal += 105;
+  yawVal += 362;
+  pitPos += 48;
+  rolPos += 48;
+  
+
   
   data[0] = 0x43;   // control packet key "C" in ASCII
   data[1] = 0x00;   // reset each data byte
@@ -177,23 +205,51 @@ void createControlPacket() { // CHANGE TO 10 BIT
   data[3] = 0x00;
   data[4] = 0x00;
   data[5] = 0x00;
-  data[6] = 0xFF;
+  data[6] = 0x00;
 
-  data[1] = (lPush<<4 | ((thrPos & 0x03C0)>>6));  // shift and pack button,
-  data[2] = ((thrPos & 0x3F)<<2 | ((yawPos & 0x0300)>>8));  // x-axis, & y-axis values
-  data[3] = (yawPos & 0xFF);
+  data[1] = (lPush<<4 | ((thrVal & 0x03C0)>>6));  // shift and pack button,
+  data[2] = ((thrVal & 0x3F)<<2 | ((yawVal & 0x0300)>>8));  // x-axis, & y-axis values
+  data[3] = (yawVal & 0xFF);
 
   data[4] = (rPush<<4 | ((pitPos & 0x03C0)>>6));  // shift and pack button,
   data[5] = ((pitPos & 0x3F)<<2 | ((rolPos & 0x0300)>>8));  // x-axis, & y-axis values
   data[6] = (rolPos & 0xFF);
 
+
+
+
+
+  
   //Serial.println(data[0], BIN);
   //Serial.println(data[1], BIN);
   //Serial.println(data[2], BIN);
   //Serial.println(data[3], BIN);
+}
 
+void throttleCalc() {
+  thrscaler = 0.05 * thrPos;
+  thrvalue = thrvalue + thrscaler;
+    
+  if (thrvalue < 0) {
+    thrvalue = 0;
+  }
+  if (thrvalue > 100) {
+    thrvalue = 100;
+  }
+  thrVal = thrvalue;
+}
 
-  
+void yawCalc() {
+  yawscaler = 0.05 * yawPos;
+  yawvalue = yawvalue + yawscaler;
+    
+  if (yawvalue < -360) {
+    yawvalue = -360;
+  }
+  if (yawvalue > 360) {
+    yawvalue = 360;
+  }
+  yawVal = yawvalue;
 }
 
 void sendControlPacket() {
@@ -206,23 +262,23 @@ void sendControlPacket() {
 
 void receivePacket() {
   if (rf95.waitAvailableTimeout(100)) {
-    if (rf95.recv(data, &len)) {
+    if (rf95.recv(recv_data, &len)) {
       //Serial.print("Packet received: ");
-      //Serial.println((char*)data);
+      //Serial.println((char*)recv_data);
       
-      if (data[0] == key_video) {
+      if (recv_data[0] == key_video[0]) {
         //Serial.println("Received a video packet");
         silence_count = 0;
         decodeVideoPacket();
       }
 
-      if (data[0] == key_sensor) {
+      if (recv_data[0] == key_sensor[0]) {
         //Serial.println("Received a sensor packet");
         silence_count = 0;
         decodeSensorPacket();
       }
 
-      if (data[0] == key_ack) {
+      if (recv_data[0] == key_ack[0]) {
         //Serial.println("Received an acknowledgement packet");
         silence_count = 0;
         ack = true;
@@ -230,28 +286,35 @@ void receivePacket() {
     }
   }
   else {
+    drop_count++;
     silence_count++;
     Serial.print("Radio silence from drone: ");
     Serial.println(silence_count);
+    Serial.print("Total dropped packet count: ");
+    Serial.println(drop_count);
   }
 }
 
 void decodeSensorPacket() {
-  /*Sensor.x =   (data[1] & 0x40) >> 6;
-  Sensor.y = ((data[1] & 0x38) >> 3) - 3;
-  Sensor.z =  (data[1] & 0x07) - 3;
+  /*Serial.println(recv_data[0], BIN);
+  Serial.println(recv_data[1], BIN);
+  Serial.println(recv_data[2], BIN);
+  Serial.println(recv_data[3], BIN);
+  Serial.println(recv_data[4], BIN);
+  Serial.println(recv_data[5], BIN);
+  Serial.println(recv_data[6], BIN);*/
+  yawGyro = ((recv_data[2] & 0x03) << 8) | (recv_data[3]);        // mask for bits 2-0
+  pitGyro = ((recv_data[4] & 0x0F) << 6) | ((recv_data[5] & 0xFC) >> 2);  // mask for bits 5-3 and shift right
+  rolGyro = ((recv_data[5] & 0x03) << 8) | (recv_data[6]);        // mask for bits 2-0
 
-  Sensor.x =   (data[2] & 0x40) >> 6;
-  Sensor.y = ((data[2] & 0x38) >> 3) - 3;
-  Sensor.z =  (data[2] & 0x07) - 3;*/
 }
 
 void decodeVideoPacket() {
-  /*Sensor.x =   (data[1] & 0x40) >> 6;
-  Sensor.y = ((data[1] & 0x38) >> 3) - 3;
-  Sensor.z =  (data[1] & 0x07) - 3;
+  /*Sensor.x =   (recv_data[1] & 0x40) >> 6;
+  Sensor.y = ((recv_data[1] & 0x38) >> 3) - 3;
+  Sensor.z =  (recv_data[1] & 0x07) - 3;
 
-  Sensor.x =   (data[2] & 0x40) >> 6;
-  Sensor.y = ((data[2] & 0x38) >> 3) - 3;
-  Sensor.z =  (data[2] & 0x07) - 3;*/
+  Sensor.x =   (recv_data[2] & 0x40) >> 6;
+  Sensor.y = ((recv_data[2] & 0x38) >> 3) - 3;
+  Sensor.z =  (recv_data[2] & 0x07) - 3;*/
 }
