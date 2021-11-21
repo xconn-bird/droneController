@@ -30,7 +30,7 @@ struct controller3 {
 
 class drone_comms {
 public:
-  RH_RF95 rf95;
+  //RH_RF95 rf95;
   drone_comms();
   void rSetup();
   void loopComms();
@@ -55,8 +55,6 @@ private:
   float scaler;
   float value;
 };
-
-
 
 
 #endif // !DRONE_COMMS_H

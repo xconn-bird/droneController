@@ -1,11 +1,8 @@
 #include "drone_comms.h"
 
-
+RH_RF95 rf95(RFM95_CS, RFM95_INT);
 
 drone_comms::drone_comms() {
-  this->rf95 = new RH_RF95(RFM95_CS, RFM95_INT);
-  //rf95(RFM95_CS, RFM95_INT);
-  
   len = 7;
   
   key_control[0] = 0x43;
@@ -20,6 +17,7 @@ drone_comms::drone_comms() {
 }
 
 void drone_comms::rSetup() {
+  
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
